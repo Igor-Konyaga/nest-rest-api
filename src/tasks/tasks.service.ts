@@ -5,7 +5,6 @@ import { Task } from './task.entity';
 import { Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { FilterTaskDto } from './dto/filterTask.dto';
-import { GetUser } from 'src/auth/decorators/getUser';
 import { User } from 'src/auth/user.entity';
 
 @Injectable()
@@ -26,7 +25,7 @@ export class TasksService {
 
     if (search) {
       query.andWhere(
-        'LOWER(task.title) LIKE LOWER(:search) OR LOWER(task.description) LIKE LOWER(:search)',
+        '(LOWER(task.title) LIKE LOWER(:search) OR LOWER(task.description) LIKE LOWER(:search))',
         { search: `%${search}%` },
       );
     }
@@ -36,9 +35,12 @@ export class TasksService {
     return tasks;
   }
 
-  async getTaskById(id: string): Promise<Task> {
-    const foundTask = await this.taskRepository.findOneBy({
-      id,
+  async getTaskById(id: string, user: User): Promise<Task> {
+    const foundTask = await this.taskRepository.findOne({
+      where: {
+        id,
+        user,
+      },
     });
 
     if (!foundTask) {
@@ -63,8 +65,12 @@ export class TasksService {
     return newTask;
   }
 
-  async updateTaskStatus(id: string, status: TaskStatus): Promise<Task> {
-    const task = await this.getTaskById(id);
+  async updateTaskStatus(
+    id: string,
+    status: TaskStatus,
+    user: User,
+  ): Promise<Task> {
+    const task = await this.getTaskById(id, user);
 
     task.status = status;
 
@@ -72,8 +78,8 @@ export class TasksService {
     return task;
   }
 
-  async deleteTask(id: string): Promise<void> {
-    const result = await this.taskRepository.delete(id);
+  async deleteTask(id: string, user: User): Promise<void> {
+    const result = await this.taskRepository.delete({ id, user });
 
     if (result.affected === 0) {
       throw new NotFoundException(`Task with ${id} not found`);
